@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../database/database_helper.dart';
 import '../models/product.dart';
 import '../models/transaction_record.dart';
+import 'out_of_stock_screen.dart';
+import '../utils/currency_formatter.dart';
 import '../widgets/summary_card.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -60,8 +62,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         localDate.day == now.day;
   }
 
-  String _formatCurrency(double value) => 'Rp ${value.toStringAsFixed(0)}';
-
   String _formatDate(DateTime date) {
     final localDate = date.toLocal();
     final hour = localDate.hour.toString().padLeft(2, '0');
@@ -92,39 +92,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
         backgroundColor: backgroundColor,
         surfaceTintColor: Colors.transparent,
 
-        title: const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              'Dashboard',
-              style: TextStyle(
-                color: textDark,
-                fontSize: 22,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            Text(
-              'TOKO AKBAR',
-              style: TextStyle(
-                color: textGrey,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 1.2,
-              ),
-            ),
-          ],
+        title: const Text(
+          'Dashboard',
+          style: TextStyle(
+            color: textDark,
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+          ),
         ),
 
         actions: [
           Container(
             margin: const EdgeInsets.only(right: 16),
             decoration: BoxDecoration(
-              color: lightBlue,
-              borderRadius: BorderRadius.circular(12),
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
             child: IconButton(
-              onPressed: () {},
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const OutOfStockScreen(),
+                  ),
+                );
+              },
               icon: const Icon(
                 Icons.notifications_none_rounded,
                 color: primaryBlue,
@@ -135,87 +133,145 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
 
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator(color: primaryBlue))
           : SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 30),
 
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Header
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.all(20),
+                    padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
-                        colors: [Color(0xFF6AA9F5), Color(0xFF8BC5FF)],
+                        colors: [Color(0xFF4F9CF9), Color(0xFF79BBFF)],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(24),
                       boxShadow: [
                         BoxShadow(
-                          color: primaryBlue.withOpacity(0.18),
-                          blurRadius: 20,
-                          offset: const Offset(0, 8),
+                          color: primaryBlue.withOpacity(0.20),
+                          blurRadius: 24,
+                          offset: const Offset(0, 10),
                         ),
                       ],
                     ),
-
-                    child: Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Selamat datang 👋',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-
-                              const SizedBox(height: 6),
-
-                              Text(
-                                'Berikut ringkasan toko hari ini.',
-                                style: TextStyle(
-                                  color: Colors.white.withOpacity(0.9),
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-
                         Container(
-                          padding: const EdgeInsets.all(12),
+                          width: 52,
+                          height: 52,
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.18),
+                            color: Colors.white.withOpacity(0.20),
                             borderRadius: BorderRadius.circular(16),
                           ),
                           child: const Icon(
                             Icons.storefront_rounded,
                             color: Colors.white,
-                            size: 30,
+                            size: 28,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        const Text(
+                          'TOKO AKBAR',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 30,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          'Point of Sale & Inventory',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.85),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                        const SizedBox(height: 22),
+                        Container(
+                          height: 1,
+                          color: Colors.white.withOpacity(0.20),
+                        ),
+                        const SizedBox(height: 18),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.waving_hand_rounded,
+                              color: Colors.white,
+                              size: 19,
+                            ),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'Selamat datang kembali!',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          'Berikut ringkasan aktivitas toko hari ini.',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.82),
+                            fontSize: 12,
                           ),
                         ),
                       ],
                     ),
                   ),
 
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 28),
 
-                  // Summary title
-                  const Text(
-                    'Ringkasan',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: textDark,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Ringkasan',
+                        style: TextStyle(
+                          fontSize: 21,
+                          fontWeight: FontWeight.w700,
+                          color: textDark,
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: lightBlue,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(
+                              Icons.today_rounded,
+                              size: 15,
+                              color: primaryBlue,
+                            ),
+                            SizedBox(width: 5),
+                            Text(
+                              'Hari ini',
+                              style: TextStyle(
+                                color: primaryBlue,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
 
                   const SizedBox(height: 14),
@@ -226,7 +282,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       Expanded(
                         child: SummaryCard(
                           title: 'Penjualan Hari Ini',
-                          value: _formatCurrency(todaySales),
+                          value: formatCurrency(todaySales),
                           icon: Icons.payments_rounded,
                         ),
                       ),
@@ -299,9 +355,42 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                   // Recent sales
                   recentTransactions.isEmpty
-                      ? const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 24),
-                          child: Center(child: Text('Belum ada transaksi')),
+                      ? Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(30),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                          child: Column(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  color: lightBlue,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.receipt_long_rounded,
+                                  color: primaryBlue,
+                                  size: 28,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              const Text(
+                                'Belum ada transaksi',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: textDark,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              const Text(
+                                'Transaksi terbaru akan muncul di sini.',
+                                style: TextStyle(fontSize: 12, color: textGrey),
+                              ),
+                            ],
+                          ),
                         )
                       : Container(
                           decoration: BoxDecoration(
@@ -391,7 +480,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
 
           Text(
-            _formatCurrency(transaction.total),
+            formatCurrency(transaction.total),
             style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w700,

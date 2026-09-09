@@ -5,6 +5,7 @@ import '../database/database_helper.dart';
 import '../models/cart_item.dart';
 import '../models/product.dart';
 import '../models/category.dart';
+import '../utils/currency_formatter.dart';
 
 class POSScreen extends StatefulWidget {
   const POSScreen({super.key});
@@ -181,10 +182,6 @@ class _POSScreenState extends State<POSScreen> {
     };
   }
 
-  String _formatCurrency(double value) {
-    return 'Rp ${value.toStringAsFixed(0)}';
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -276,7 +273,7 @@ class _POSScreenState extends State<POSScreen> {
                                   title: Text(product.name),
                                   subtitle: Text(
                                     'Kategori: ${_getCategoryName(product.categoryId)}'
-                                    '\n${_formatCurrency(product.sellPrice)}'
+                                    '\n${formatCurrency(product.sellPrice)}'
                                     '\nStok: ${product.stock}',
                                   ),
                                   isThreeLine: true,
@@ -343,7 +340,7 @@ class _POSScreenState extends State<POSScreen> {
                                       const SizedBox(height: 6),
 
                                       Text(
-                                        _formatCurrency(item.product.sellPrice),
+                                        formatCurrency(item.product.sellPrice),
                                       ),
 
                                       Row(
@@ -405,7 +402,7 @@ class _POSScreenState extends State<POSScreen> {
                                           const Spacer(),
 
                                           Text(
-                                            _formatCurrency(item.subtotal),
+                                            formatCurrency(item.subtotal),
                                             style: const TextStyle(
                                               fontWeight: FontWeight.bold,
                                             ),
@@ -433,7 +430,7 @@ class _POSScreenState extends State<POSScreen> {
                         ),
                       ),
                       Text(
-                        _formatCurrency(_total),
+                        formatCurrency(_total),
                         style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -446,13 +443,26 @@ class _POSScreenState extends State<POSScreen> {
 
                   SizedBox(
                     width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _cart.isEmpty
-                          ? null
-                          : () {
-                              _showPaymentDialog();
-                            },
-                      child: const Text('PROSES PEMBAYARAN'),
+                    child: Focus(
+                      autofocus: true,
+                      onKeyEvent: (node, event) {
+                        if (_cart.isNotEmpty &&
+                            event is KeyDownEvent &&
+                            event.logicalKey == LogicalKeyboardKey.enter) {
+                          _showPaymentDialog();
+                          return KeyEventResult.handled;
+                        }
+
+                        return KeyEventResult.ignored;
+                      },
+                      child: ElevatedButton(
+                        onPressed: _cart.isEmpty
+                            ? null
+                            : () {
+                                _showPaymentDialog();
+                              },
+                        child: const Text('PROSES PEMBAYARAN'),
+                      ),
                     ),
                   ),
                 ],
@@ -467,17 +477,37 @@ class _POSScreenState extends State<POSScreen> {
   void _showPaymentDialog() {
     final paymentController = TextEditingController();
     final total = _total;
+    var isProcessing = false;
 
     showDialog(
       context: context,
       builder: (context) {
+        Future<void> processPayment() async {
+          if (isProcessing) {
+            return;
+          }
+
+          final payment = parseCurrencyInput(paymentController.text);
+
+          if (payment < total) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Uang pembayaran kurang')),
+            );
+            return;
+          }
+
+          isProcessing = true;
+          Navigator.pop(context);
+          await _showPaymentSuccess(payment);
+        }
+
         return AlertDialog(
           title: const Text('Pembayaran'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'Total: ${_formatCurrency(total)}',
+                'Total: ${formatCurrency(total)}',
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
 
@@ -486,10 +516,32 @@ class _POSScreenState extends State<POSScreen> {
               TextField(
                 controller: paymentController,
                 keyboardType: TextInputType.number,
+                textInputAction: TextInputAction.done,
+                inputFormatters: const [
+                  ThousandsSeparatorInputFormatter(),
+                ],
+                onSubmitted: (_) => processPayment(),
                 decoration: const InputDecoration(
                   labelText: 'Uang Pembayaran',
                   prefixText: 'Rp ',
                   border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerRight,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    final formattedTotal = total.toStringAsFixed(0);
+                    paymentController
+                      ..text = formatCurrency(total).substring(3)
+                      ..selection = TextSelection.collapsed(
+                        offset: formattedTotal.length +
+                            (formattedTotal.length - 1) ~/ 3,
+                      );
+                  },
+                  icon: const Icon(Icons.payments_outlined),
+                  label: const Text('Uang Pas'),
                 ),
               ),
             ],
@@ -503,20 +555,7 @@ class _POSScreenState extends State<POSScreen> {
             ),
 
             ElevatedButton(
-              onPressed: () {
-                final payment = double.tryParse(paymentController.text) ?? 0;
-
-                if (payment < _total) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Uang pembayaran kurang')),
-                  );
-                  return;
-                }
-
-                Navigator.pop(context);
-
-                _showPaymentSuccess(payment);
-              },
+              onPressed: processPayment,
               child: const Text('Bayar'),
             ),
           ],
@@ -555,6 +594,14 @@ class _POSScreenState extends State<POSScreen> {
     showDialog(
       context: context,
       builder: (context) {
+        void finishPayment() {
+          Navigator.pop(context);
+
+          setState(() {
+            _cart.clear();
+          });
+        }
+
         return AlertDialog(
           title: const Text('Pembayaran Berhasil'),
           content: Column(
@@ -564,24 +611,30 @@ class _POSScreenState extends State<POSScreen> {
 
               const SizedBox(height: 16),
 
-              Text('Total: ${_formatCurrency(_total)}'),
+              Text('Total: ${formatCurrency(_total)}'),
 
               Text(
-                'Kembalian: ${_formatCurrency(change)}',
+                'Kembalian: ${formatCurrency(change)}',
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
             ],
           ),
           actions: [
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
+            Focus(
+              autofocus: true,
+              onKeyEvent: (node, event) {
+                if (event is KeyDownEvent &&
+                    event.logicalKey == LogicalKeyboardKey.enter) {
+                  finishPayment();
+                  return KeyEventResult.handled;
+                }
 
-                setState(() {
-                  _cart.clear();
-                });
+                return KeyEventResult.ignored;
               },
-              child: const Text('Selesai'),
+              child: ElevatedButton(
+                onPressed: finishPayment,
+                child: const Text('Selesai'),
+              ),
             ),
           ],
         );

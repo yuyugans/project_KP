@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../database/database_helper.dart';
 import '../models/category.dart';
 import '../models/product.dart';
+import '../utils/currency_formatter.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -72,8 +74,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
     await _loadProducts();
   }
 
-  String _formatCurrency(double value) => 'Rp ${value.toStringAsFixed(0)}';
-
   Future<void> _showAddProductDialog() async {
     await _showProductDialog();
   }
@@ -90,10 +90,14 @@ class _InventoryScreenState extends State<InventoryScreen> {
       text: product?.barcode ?? '',
     );
     final buyPriceController = TextEditingController(
-      text: product?.buyPrice.toStringAsFixed(0) ?? '',
+      text: product == null
+          ? ''
+          : formatCurrency(product.buyPrice).substring(3),
     );
     final sellPriceController = TextEditingController(
-      text: product?.sellPrice.toStringAsFixed(0) ?? '',
+      text: product == null
+          ? ''
+          : formatCurrency(product.sellPrice).substring(3),
     );
     final stockController = TextEditingController(
       text: product?.stock.toString() ?? '',
@@ -104,10 +108,70 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
     int? selectedCategoryId = product?.categoryId;
     final dialogContext = context;
+    var isSaving = false;
 
     await showDialog(
       context: context,
       builder: (context) {
+        Future<void> saveProduct() async {
+          if (isSaving || !formKey.currentState!.validate()) {
+            return;
+          }
+
+          final name = nameController.text.trim();
+          final barcode = barcodeController.text.trim();
+          final buyPrice = parseCurrencyInput(buyPriceController.text);
+          final sellPrice = parseCurrencyInput(sellPriceController.text);
+          final stock = int.tryParse(stockController.text) ?? 0;
+          final minStock = int.tryParse(minStockController.text) ?? 0;
+
+          if (selectedCategoryId == null) {
+            ScaffoldMessenger.of(dialogContext).showSnackBar(
+              const SnackBar(content: Text('Kategori harus dipilih')),
+            );
+            return;
+          }
+
+          isSaving = true;
+
+          final productToSave = Product(
+            id: product?.id,
+            categoryId: selectedCategoryId!,
+            name: name,
+            barcode: barcode,
+            buyPrice: buyPrice,
+            sellPrice: sellPrice,
+            stock: stock,
+            minStock: minStock,
+          );
+
+          if (isEditing) {
+            await _databaseHelper.updateProduct(productToSave);
+          } else {
+            await _databaseHelper.insertProduct(productToSave);
+          }
+
+          if (!mounted) return;
+
+          if (context.mounted) {
+            Navigator.pop(context);
+          }
+
+          await _loadProducts();
+
+          if (!mounted) return;
+
+          ScaffoldMessenger.of(this.context).showSnackBar(
+            SnackBar(
+              content: Text(
+                isEditing
+                    ? 'Produk berhasil diperbarui'
+                    : 'Produk berhasil ditambahkan',
+              ),
+            ),
+          );
+        }
+
         return AlertDialog(
           title: Text(isEditing ? 'Edit Produk' : 'Tambah Produk'),
           content: SizedBox(
@@ -121,6 +185,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     _buildTextFormField(
                       controller: nameController,
                       labelText: 'Nama Produk',
+                      onFieldSubmitted: (_) => saveProduct(),
                       validator: (value) {
                         if ((value ?? '').trim().isEmpty) {
                           return 'Nama produk harus diisi';
@@ -132,6 +197,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     _buildTextFormField(
                       controller: barcodeController,
                       labelText: 'Barcode',
+                      onFieldSubmitted: (_) => saveProduct(),
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<int>(
@@ -168,8 +234,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
                       labelText: 'Harga Beli',
                       prefixText: 'Rp ',
                       keyboardType: TextInputType.number,
+                      inputFormatters: const [
+                        ThousandsSeparatorInputFormatter(),
+                      ],
+                      onFieldSubmitted: (_) => saveProduct(),
                       validator: (value) {
-                        final parsedValue = double.tryParse(value ?? '') ?? 0;
+                        final parsedValue = parseCurrencyInput(value ?? '');
                         if (parsedValue < 0) {
                           return 'Harga beli tidak boleh negatif';
                         }
@@ -182,8 +252,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
                       labelText: 'Harga Jual',
                       prefixText: 'Rp ',
                       keyboardType: TextInputType.number,
+                      inputFormatters: const [
+                        ThousandsSeparatorInputFormatter(),
+                      ],
+                      onFieldSubmitted: (_) => saveProduct(),
                       validator: (value) {
-                        final parsedValue = double.tryParse(value ?? '') ?? 0;
+                        final parsedValue = parseCurrencyInput(value ?? '');
                         if (parsedValue <= 0) {
                           return 'Harga jual harus lebih dari 0';
                         }
@@ -195,6 +269,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                       controller: stockController,
                       labelText: 'Stok',
                       keyboardType: TextInputType.number,
+                      onFieldSubmitted: (_) => saveProduct(),
                       validator: (value) {
                         final parsedValue = int.tryParse(value ?? '') ?? 0;
                         if (parsedValue < 0) {
@@ -208,6 +283,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                       controller: minStockController,
                       labelText: 'Minimum Stok',
                       keyboardType: TextInputType.number,
+                      onFieldSubmitted: (_) => saveProduct(),
                       validator: (value) {
                         final parsedValue = int.tryParse(value ?? '') ?? 0;
                         if (parsedValue < 0) {
@@ -226,64 +302,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
               onPressed: () => Navigator.pop(context),
               child: const Text('Batal'),
             ),
-            ElevatedButton(
-              onPressed: () async {
-                if (!formKey.currentState!.validate()) {
-                  return;
-                }
-
-                final name = nameController.text.trim();
-                final barcode = barcodeController.text.trim();
-                final buyPrice = double.tryParse(buyPriceController.text) ?? 0;
-                final sellPrice =
-                    double.tryParse(sellPriceController.text) ?? 0;
-                final stock = int.tryParse(stockController.text) ?? 0;
-                final minStock = int.tryParse(minStockController.text) ?? 0;
-
-                if (selectedCategoryId == null) {
-                  ScaffoldMessenger.of(dialogContext).showSnackBar(
-                    const SnackBar(content: Text('Kategori harus dipilih')),
-                  );
-                  return;
-                }
-
-                final productToSave = Product(
-                  id: product?.id,
-                  categoryId: selectedCategoryId!,
-                  name: name,
-                  barcode: barcode,
-                  buyPrice: buyPrice,
-                  sellPrice: sellPrice,
-                  stock: stock,
-                  minStock: minStock,
-                );
-
-                if (isEditing) {
-                  await _databaseHelper.updateProduct(productToSave);
-                } else {
-                  await _databaseHelper.insertProduct(productToSave);
-                }
-
-                if (!mounted) return;
-
-                if (context.mounted) {
-                  Navigator.pop(context);
-                }
-
-                await _loadProducts();
-
-                ScaffoldMessenger.of(dialogContext).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      isEditing
-                          ? 'Produk berhasil diperbarui'
-                          : 'Produk berhasil ditambahkan',
-                    ),
-                  ),
-                );
-              },
-              child: const Text('Simpan'),
-            ),
+            ElevatedButton(onPressed: saveProduct, child: const Text('Simpan')),
           ],
         );
       },
@@ -295,11 +314,15 @@ class _InventoryScreenState extends State<InventoryScreen> {
     required String labelText,
     String? prefixText,
     TextInputType keyboardType = TextInputType.text,
+    List<TextInputFormatter>? inputFormatters,
     String? Function(String?)? validator,
+    void Function(String)? onFieldSubmitted,
   }) {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
+      onFieldSubmitted: onFieldSubmitted,
+      inputFormatters: inputFormatters,
       decoration: InputDecoration(
         labelText: labelText,
         prefixText: prefixText,
@@ -413,8 +436,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
                             ),
                             subtitle: Text(
                               'Barcode: ${product.barcode}\n'
-                              'Harga Beli: ${_formatCurrency(product.buyPrice)}\n'
-                              'Harga Jual: ${_formatCurrency(product.sellPrice)}',
+                              'Harga Beli: ${formatCurrency(product.buyPrice)}\n'
+                              'Harga Jual: ${formatCurrency(product.sellPrice)}',
                             ),
                             isThreeLine: true,
                             trailing: Row(

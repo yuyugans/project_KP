@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../database/database_helper.dart';
 import '../models/transaction_record.dart';
+import '../utils/currency_formatter.dart';
 
 class TransactionScreen extends StatefulWidget {
   const TransactionScreen({super.key});
@@ -31,8 +32,6 @@ class _TransactionScreenState extends State<TransactionScreen> {
       _isLoading = false;
     });
   }
-
-  String _formatCurrency(double value) => 'Rp ${value.toStringAsFixed(0)}';
 
   String _formatDate(DateTime date) {
     final localDate = date.toLocal();
@@ -126,7 +125,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
         title: Text('Transaksi #${transaction.id}'),
         subtitle: Text(
           '${_formatDate(transaction.createdAt)}\n'
-          'Total: ${_formatCurrency(transaction.total)}',
+          'Total: ${formatCurrency(transaction.total)}',
         ),
         children: [
           for (final entry in groupedItems.entries)
@@ -135,12 +134,12 @@ class _TransactionScreenState extends State<TransactionScreen> {
           ListTile(
             dense: true,
             title: const Text('Pembayaran'),
-            trailing: Text(_formatCurrency(transaction.payment)),
+            trailing: Text(formatCurrency(transaction.payment)),
           ),
           ListTile(
             dense: true,
             title: const Text('Kembalian'),
-            trailing: Text(_formatCurrency(transaction.change)),
+            trailing: Text(formatCurrency(transaction.change)),
           ),
         ],
       ),
@@ -165,7 +164,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
             categoryName,
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
-          trailing: Text(_formatCurrency(categoryTotal)),
+          trailing: Text(formatCurrency(categoryTotal)),
         ),
         for (final item in items)
           ListTile(
@@ -173,9 +172,9 @@ class _TransactionScreenState extends State<TransactionScreen> {
             contentPadding: const EdgeInsets.only(left: 32, right: 16),
             title: Text(item.productName),
             subtitle: Text(
-              '${item.quantity} x ${_formatCurrency(item.unitPrice)}',
+              '${item.quantity} x ${formatCurrency(item.unitPrice)}',
             ),
-            trailing: Text(_formatCurrency(item.subtotal)),
+            trailing: Text(formatCurrency(item.subtotal)),
           ),
       ],
     );
