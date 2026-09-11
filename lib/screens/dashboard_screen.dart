@@ -109,7 +109,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               borderRadius: BorderRadius.circular(14),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
+                  color: Colors.black.withValues(alpha: 0.04),
                   blurRadius: 12,
                   offset: const Offset(0, 4),
                 ),
@@ -152,7 +152,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       borderRadius: BorderRadius.circular(24),
                       boxShadow: [
                         BoxShadow(
-                          color: primaryBlue.withOpacity(0.20),
+                          color: primaryBlue.withValues(alpha: 0.20),
                           blurRadius: 24,
                           offset: const Offset(0, 10),
                         ),
@@ -165,7 +165,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           width: 52,
                           height: 52,
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.20),
+                            color: Colors.white.withValues(alpha: 0.20),
                             borderRadius: BorderRadius.circular(16),
                           ),
                           child: const Icon(
@@ -188,7 +188,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         Text(
                           'Point of Sale & Inventory',
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.85),
+                            color: Colors.white.withValues(alpha: 0.85),
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
                             letterSpacing: 0.3,
@@ -197,7 +197,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         const SizedBox(height: 22),
                         Container(
                           height: 1,
-                          color: Colors.white.withOpacity(0.20),
+                          color: Colors.white.withValues(alpha: 0.20),
                         ),
                         const SizedBox(height: 18),
                         Row(
@@ -222,7 +222,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         Text(
                           'Berikut ringkasan aktivitas toko hari ini.',
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.82),
+                            color: Colors.white.withValues(alpha: 0.82),
                             fontSize: 12,
                           ),
                         ),
@@ -398,7 +398,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             borderRadius: BorderRadius.circular(18),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.04),
+                                color: Colors.black.withValues(alpha: 0.04),
                                 blurRadius: 15,
                                 offset: const Offset(0, 5),
                               ),

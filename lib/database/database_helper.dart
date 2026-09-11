@@ -38,13 +38,28 @@ class DatabaseHelper {
     );
   }
 
+  Future<void> _seedDefaultCategories(Database db) async {
+    final defaultCategories = [
+      'Material Bangunan',
+      'Obat/Pertanian',
+    ];
+
+    for (final categoryName in defaultCategories) {
+      await db.insert(
+        'categories',
+        {'name': categoryName},
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+    }
+  }
+
   Future<void> _createDB(Database db, int version) async {
     await db.execute('''
       CREATE TABLE categories (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL
       )
-    ''');
+    ''' );
 
     await db.execute('''
       CREATE TABLE products (
@@ -57,9 +72,10 @@ class DatabaseHelper {
         stock INTEGER NOT NULL,
         min_stock INTEGER NOT NULL
       )
-    ''');
+    ''' );
 
     await _createTransactionTables(db);
+    await _seedDefaultCategories(db);
   }
 
   Future<void> _createTransactionTables(Database db) async {
@@ -133,6 +149,17 @@ class DatabaseHelper {
     return deletedRows;
   }
 
+  Future<void> ensureDefaultCategories() async {
+    final db = await database;
+    final count = Sqflite.firstIntValue(
+      await db.rawQuery('SELECT COUNT(*) FROM categories'),
+    );
+
+    if (count == null || count == 0) {
+      await _seedDefaultCategories(db);
+    }
+  }
+
   Future<List<Category>> getCategories() async {
     final db = await database;
 
@@ -145,9 +172,7 @@ class DatabaseHelper {
 
   Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
-      await db.insert('categories', {'name': 'Material Bangunan'});
-
-      await db.insert('categories', {'name': 'Obat/Pertanian'});
+      await _seedDefaultCategories(db);
     }
 
     if (oldVersion < 3) {

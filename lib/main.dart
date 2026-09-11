@@ -23,6 +23,7 @@ void main() async {
   }
 
   await DatabaseHelper.instance.database;
+  await DatabaseHelper.instance.ensureDefaultCategories();
 
   runApp(const MyApp());
 }
