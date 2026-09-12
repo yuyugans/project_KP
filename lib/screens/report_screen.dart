@@ -15,6 +15,8 @@ class _ReportScreenState extends State<ReportScreen> {
   final DatabaseHelper _databaseHelper = DatabaseHelper.instance;
   List<TransactionRecord> _transactions = [];
   bool _isLoading = true;
+  String _selectedRange = 'all';
+  DateTime? _selectedDate;
 
   @override
   void initState() {
@@ -44,6 +46,42 @@ class _ReportScreenState extends State<ReportScreen> {
     });
   }
 
+  String _formatShortDate(DateTime date) {
+    final localDate = date.toLocal();
+    final day = localDate.day.toString().padLeft(2, '0');
+    final month = localDate.month.toString().padLeft(2, '0');
+    return '$day/$month/${localDate.year}';
+  }
+
+  bool _isSameDay(DateTime first, DateTime second) {
+    final firstLocal = first.toLocal();
+    final secondLocal = second.toLocal();
+
+    return firstLocal.year == secondLocal.year &&
+        firstLocal.month == secondLocal.month &&
+        firstLocal.day == secondLocal.day;
+  }
+
+  bool _isSameMonth(DateTime first, DateTime second) {
+    final firstLocal = first.toLocal();
+    final secondLocal = second.toLocal();
+
+    return firstLocal.year == secondLocal.year &&
+        firstLocal.month == secondLocal.month;
+  }
+
+  DateTime _getPreviousMonth(DateTime date) {
+    var year = date.year;
+    var month = date.month - 1;
+
+    if (month <= 0) {
+      month = 12;
+      year -= 1;
+    }
+
+    return DateTime(year, month, 1);
+  }
+
   String _reportCategory(String categoryName) {
     final normalized = categoryName.toLowerCase();
 
@@ -54,13 +92,43 @@ class _ReportScreenState extends State<ReportScreen> {
     return 'Pupuk';
   }
 
+  List<TransactionRecord> get _filteredTransactions {
+    final now = DateTime.now();
+
+    switch (_selectedRange) {
+      case 'today':
+        return _transactions
+            .where((transaction) => _isSameDay(transaction.createdAt, now))
+            .toList();
+      case 'lastMonth':
+        final lastMonth = _getPreviousMonth(now);
+        return _transactions
+            .where((transaction) => _isSameMonth(transaction.createdAt, lastMonth))
+            .toList();
+      case 'thisMonth':
+        return _transactions
+            .where((transaction) => _isSameMonth(transaction.createdAt, now))
+            .toList();
+      case 'custom':
+        if (_selectedDate == null) {
+          return const [];
+        }
+        return _transactions
+            .where((transaction) => _isSameDay(transaction.createdAt, _selectedDate!))
+            .toList();
+      case 'all':
+      default:
+        return _transactions;
+    }
+  }
+
   Map<String, _CategorySummary> get _summaries {
     final summaries = <String, _CategorySummary>{
       'Pupuk': _CategorySummary(),
       'Material': _CategorySummary(),
     };
 
-    for (final transaction in _transactions) {
+    for (final transaction in _filteredTransactions) {
       for (final item in transaction.items) {
         final category = _reportCategory(item.categoryName);
         final summary = summaries[category]!;
@@ -74,9 +142,36 @@ class _ReportScreenState extends State<ReportScreen> {
     return summaries;
   }
 
+  Future<void> _pickCustomDate() async {
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate ?? DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 3650)),
+    );
+
+    if (pickedDate == null) {
+      return;
+    }
+
+    if (!mounted) return;
+
+    setState(() {
+      _selectedDate = pickedDate;
+      _selectedRange = 'custom';
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final summaries = _summaries;
+    final selectedRangeTitle = switch (_selectedRange) {
+      'today' => 'Hari ini',
+      'lastMonth' => 'Bulan lalu',
+      'thisMonth' => 'Bulan ini',
+      'custom' => _selectedDate == null ? 'Pilih tanggal' : _formatShortDate(_selectedDate!),
+      _ => 'Keseluruhan',
+    };
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FA),
@@ -112,6 +207,93 @@ class _ReportScreenState extends State<ReportScreen> {
                 padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
                 children: [
                   _buildHeader(),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFFE5E7EB)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Filter laporan',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF374151),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            ChoiceChip(
+                              label: const Text('Keseluruhan'),
+                              selected: _selectedRange == 'all',
+                              onSelected: (_) {
+                                setState(() {
+                                  _selectedRange = 'all';
+                                  _selectedDate = null;
+                                });
+                              },
+                            ),
+                            ChoiceChip(
+                              label: const Text('Hari ini'),
+                              selected: _selectedRange == 'today',
+                              onSelected: (_) {
+                                setState(() {
+                                  _selectedRange = 'today';
+                                  _selectedDate = null;
+                                });
+                              },
+                            ),
+                            ChoiceChip(
+                              label: const Text('Bulan ini'),
+                              selected: _selectedRange == 'thisMonth',
+                              onSelected: (_) {
+                                setState(() {
+                                  _selectedRange = 'thisMonth';
+                                  _selectedDate = null;
+                                });
+                              },
+                            ),
+                            ChoiceChip(
+                              label: const Text('Bulan lalu'),
+                              selected: _selectedRange == 'lastMonth',
+                              onSelected: (_) {
+                                setState(() {
+                                  _selectedRange = 'lastMonth';
+                                  _selectedDate = null;
+                                });
+                              },
+                            ),
+                            ChoiceChip(
+                              label: Text(
+                                _selectedDate == null
+                                    ? 'Pilih tanggal'
+                                    : _formatShortDate(_selectedDate!),
+                              ),
+                              selected: _selectedRange == 'custom',
+                              onSelected: (_) => _pickCustomDate(),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Tampilan saat ini: $selectedRangeTitle',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.grey.shade700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                   const SizedBox(height: 20),
 
                   _buildSummaryCard(
