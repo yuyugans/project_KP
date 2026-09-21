@@ -19,6 +19,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<Product> _products = [];
   List<TransactionRecord> _transactions = [];
   bool _isLoading = true;
+  bool _isLoadingDashboard = false;
+  bool _reloadRequested = false;
 
   static const Color primaryBlue = Color(0xFF5B9FEF);
   static const Color lightBlue = Color(0xFFEAF4FF);
@@ -42,16 +44,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _loadDashboard() async {
-    final products = await _databaseHelper.getProducts();
-    final transactions = await _databaseHelper.getTransactions();
+    if (_isLoadingDashboard) {
+      _reloadRequested = true;
+      return;
+    }
 
-    if (!mounted) return;
+    _isLoadingDashboard = true;
+    try {
+      final products = await _databaseHelper.getProducts();
+      final transactions = await _databaseHelper.getTransactions();
 
-    setState(() {
-      _products = products;
-      _transactions = transactions;
-      _isLoading = false;
-    });
+      if (!mounted) return;
+
+      setState(() {
+        _products = products;
+        _transactions = transactions;
+        _isLoading = false;
+      });
+    } finally {
+      _isLoadingDashboard = false;
+      if (_reloadRequested && mounted) {
+        _reloadRequested = false;
+        _loadDashboard();
+      }
+    }
   }
 
   bool _isToday(DateTime date) {
@@ -118,9 +134,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: IconButton(
               onPressed: () {
                 Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const OutOfStockScreen(),
-                  ),
+                  MaterialPageRoute(builder: (_) => const OutOfStockScreen()),
                 );
               },
               icon: const Icon(

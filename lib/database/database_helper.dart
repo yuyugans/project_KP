@@ -5,6 +5,7 @@ import '../models/product.dart';
 import '../models/category.dart';
 import '../models/cart_item.dart';
 import '../models/transaction_record.dart';
+import '../models/stock_receipt.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
@@ -14,6 +15,14 @@ class DatabaseHelper {
   static Database? _database;
 
   DatabaseHelper._init();
+
+  void _notifyProductChanges() {
+    // Notify listeners after the current database operation has fully
+    // completed, so their follow-up queries cannot overlap the transaction.
+    Future<void>.delayed(Duration.zero, () {
+      productChanges.value++;
+    });
+  }
 
   Future<Database> get database async {
     if (_database != null) {
@@ -32,24 +41,19 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 5,
+      version: 6,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
   }
 
   Future<void> _seedDefaultCategories(Database db) async {
-    final defaultCategories = [
-      'Material Bangunan',
-      'Obat/Pertanian',
-    ];
+    final defaultCategories = ['Material Bangunan', 'Obat/Pertanian'];
 
     for (final categoryName in defaultCategories) {
-      await db.insert(
-        'categories',
-        {'name': categoryName},
-        conflictAlgorithm: ConflictAlgorithm.ignore,
-      );
+      await db.insert('categories', {
+        'name': categoryName,
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
     }
   }
 
@@ -59,7 +63,7 @@ class DatabaseHelper {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL
       )
-    ''' );
+    ''');
 
     await db.execute('''
       CREATE TABLE products (
@@ -72,10 +76,30 @@ class DatabaseHelper {
         stock INTEGER NOT NULL,
         min_stock INTEGER NOT NULL
       )
-    ''' );
+    ''');
 
     await _createTransactionTables(db);
+    await _createStockReceiptTable(db);
     await _seedDefaultCategories(db);
+  }
+
+  Future<void> _createStockReceiptTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE stock_receipts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        product_id INTEGER NOT NULL,
+        product_name TEXT NOT NULL,
+        invoice_number TEXT NOT NULL,
+        supplier TEXT NOT NULL,
+        quantity INTEGER NOT NULL,
+        buy_price REAL NOT NULL,
+        total REAL NOT NULL,
+        payment_status TEXT NOT NULL,
+        invoice_date TEXT NOT NULL,
+        due_date TEXT,
+        notes TEXT NOT NULL
+      )
+    ''');
   }
 
   Future<void> _createTransactionTables(Database db) async {
@@ -110,7 +134,7 @@ class DatabaseHelper {
     final db = await database;
 
     final id = await db.insert('products', product.toMap());
-    productChanges.value++;
+    _notifyProductChanges();
     return id;
   }
 
@@ -133,7 +157,7 @@ class DatabaseHelper {
       where: 'id = ?',
       whereArgs: [product.id],
     );
-    productChanges.value++;
+    _notifyProductChanges();
     return updatedRows;
   }
 
@@ -145,7 +169,7 @@ class DatabaseHelper {
       where: 'id = ?',
       whereArgs: [id],
     );
-    productChanges.value++;
+    _notifyProductChanges();
     return deletedRows;
   }
 
@@ -209,6 +233,112 @@ class DatabaseHelper {
           )
       ''');
     }
+
+    if (oldVersion < 6) {
+      await _createStockReceiptTable(db);
+    }
+  }
+
+  Future<void> insertStockReceipt({
+    required StockReceipt receipt,
+    required int currentStock,
+  }) async {
+    await insertStockReceipts([receipt]);
+  }
+
+  Future<void> insertStockReceipts(List<StockReceipt> receipts) async {
+    if (receipts.isEmpty) {
+      throw ArgumentError('Minimal satu produk harus dicatat');
+    }
+    final db = await database;
+
+    await db.transaction((txn) async {
+      for (final receipt in receipts) {
+        final updatedRows = await txn.rawUpdate(
+          'UPDATE products '
+          'SET stock = stock + ?, buy_price = ? '
+          'WHERE id = ?',
+          [receipt.quantity, receipt.buyPrice, receipt.productId],
+        );
+        if (updatedRows != 1) {
+          throw StateError('Produk ${receipt.productName} tidak ditemukan');
+        }
+
+        await txn.insert('stock_receipts', {
+          'product_id': receipt.productId,
+          'product_name': receipt.productName,
+          'invoice_number': receipt.invoiceNumber,
+          'supplier': receipt.supplier,
+          'quantity': receipt.quantity,
+          'buy_price': receipt.buyPrice,
+          'total': receipt.total,
+          'payment_status': receipt.paymentStatus,
+          'invoice_date': receipt.invoiceDate.toIso8601String(),
+          'due_date': receipt.dueDate?.toIso8601String(),
+          'notes': receipt.notes,
+        });
+      }
+    });
+
+    _notifyProductChanges();
+  }
+
+  Future<List<int>> insertStockReceiptsWithNewProducts({
+    required List<StockReceipt> receipts,
+    required Map<int, Product> newProducts,
+  }) async {
+    if (receipts.isEmpty) {
+      throw ArgumentError('Minimal satu produk harus dicatat');
+    }
+
+    final db = await database;
+    final createdProductIds = <int>[];
+
+    await db.transaction((txn) async {
+      final productIds = <int, int>{};
+      for (final entry in newProducts.entries) {
+        final productId = await txn.insert('products', entry.value.toMap());
+        productIds[entry.key] = productId;
+        createdProductIds.add(productId);
+      }
+
+      for (final receipt in receipts) {
+        final productId = productIds[receipt.productId] ?? receipt.productId;
+        final updatedRows = await txn.rawUpdate(
+          'UPDATE products SET stock = stock + ?, buy_price = ? WHERE id = ?',
+          [receipt.quantity, receipt.buyPrice, productId],
+        );
+        if (updatedRows != 1) {
+          throw StateError('Produk ${receipt.productName} tidak ditemukan');
+        }
+
+        await txn.insert('stock_receipts', {
+          'product_id': productId,
+          'product_name': receipt.productName,
+          'invoice_number': receipt.invoiceNumber,
+          'supplier': receipt.supplier,
+          'quantity': receipt.quantity,
+          'buy_price': receipt.buyPrice,
+          'total': receipt.total,
+          'payment_status': receipt.paymentStatus,
+          'invoice_date': receipt.invoiceDate.toIso8601String(),
+          'due_date': receipt.dueDate?.toIso8601String(),
+          'notes': receipt.notes,
+        });
+      }
+    });
+
+    _notifyProductChanges();
+    return createdProductIds;
+  }
+
+  Future<List<StockReceipt>> getStockReceipts() async {
+    final db = await database;
+    final rows = await db.query(
+      'stock_receipts',
+      orderBy: 'invoice_date DESC, id DESC',
+    );
+    return rows.map(StockReceipt.fromMap).toList();
   }
 
   Future<int> insertTransaction({

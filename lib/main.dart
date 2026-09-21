@@ -4,9 +4,11 @@ import 'database/database_helper.dart';
 
 import 'screens/dashboard_screen.dart';
 import 'screens/inventory_screen.dart';
+import 'screens/login_screen.dart';
 import 'screens/pos_screen.dart';
 import 'screens/transaction_screen.dart';
 import 'screens/report_screen.dart';
+import 'screens/stock_receipt_screen.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -27,6 +29,7 @@ void main() async {
 
   runApp(const MyApp());
 }
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -137,7 +140,7 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const MainScreen(),
+      home: LoginScreen(destination: const MainScreen()),
     );
   }
 }
@@ -158,6 +161,7 @@ class _MainScreenState extends State<MainScreen> {
     POSScreen(),
     TransactionScreen(),
     ReportScreen(),
+    StockReceiptScreen(),
   ];
 
   @override
@@ -203,6 +207,12 @@ class _MainScreenState extends State<MainScreen> {
             icon: Icon(Icons.bar_chart_outlined),
             selectedIcon: Icon(Icons.bar_chart),
             label: 'Laporan',
+          ),
+
+          NavigationDestination(
+            icon: Icon(Icons.move_to_inbox_outlined),
+            selectedIcon: Icon(Icons.move_to_inbox),
+            label: 'Barang Masuk',
           ),
         ],
       ),
