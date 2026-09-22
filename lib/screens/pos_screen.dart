@@ -21,6 +21,8 @@ class _POSScreenState extends State<POSScreen> {
   final List<CartItem> _cart = [];
 
   final TextEditingController _searchController = TextEditingController();
+  final TextEditingController _barcodeController = TextEditingController();
+  final FocusNode _barcodeFocusNode = FocusNode();
   final Map<String, TextEditingController> _quantityControllers = {};
 
   String _searchQuery = '';
@@ -33,11 +35,18 @@ class _POSScreenState extends State<POSScreen> {
   void initState() {
     super.initState();
     _loadProducts();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _barcodeFocusNode.requestFocus();
+      }
+    });
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _barcodeController.dispose();
+    _barcodeFocusNode.dispose();
     for (final controller in _quantityControllers.values) {
       controller.dispose();
     }
@@ -91,6 +100,28 @@ class _POSScreenState extends State<POSScreen> {
       _products = products;
       _categories = categories;
     });
+  }
+
+  Future<void> _scanBarcode(String value) async {
+    final barcode = value.trim();
+    _barcodeController.clear();
+    if (barcode.isEmpty) {
+      _barcodeFocusNode.requestFocus();
+      return;
+    }
+
+    final product = await _databaseHelper.getProductByBarcode(barcode);
+    if (!mounted) return;
+
+    if (product == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Barcode $barcode tidak terdaftar di database')),
+      );
+    } else {
+      _addToCart(product);
+    }
+
+    _barcodeFocusNode.requestFocus();
   }
 
   List<Product> get _filteredProducts {
@@ -258,6 +289,23 @@ class _POSScreenState extends State<POSScreen> {
                   ),
 
                   const SizedBox(height: 16),
+
+                  TextField(
+                    controller: _barcodeController,
+                    focusNode: _barcodeFocusNode,
+                    autofocus: true,
+                    keyboardType: TextInputType.number,
+                    textInputAction: TextInputAction.done,
+                    decoration: const InputDecoration(
+                      labelText: 'Scan barcode',
+                      hintText: 'Arahkan scanner ke barcode lalu tekan Enter',
+                      prefixIcon: Icon(Icons.qr_code_scanner),
+                      border: OutlineInputBorder(),
+                    ),
+                    onSubmitted: _scanBarcode,
+                  ),
+
+                  const SizedBox(height: 12),
 
                   Expanded(
                     child: _filteredProducts.isEmpty
@@ -517,9 +565,7 @@ class _POSScreenState extends State<POSScreen> {
                 controller: paymentController,
                 keyboardType: TextInputType.number,
                 textInputAction: TextInputAction.done,
-                inputFormatters: const [
-                  ThousandsSeparatorInputFormatter(),
-                ],
+                inputFormatters: const [ThousandsSeparatorInputFormatter()],
                 onSubmitted: (_) => processPayment(),
                 decoration: const InputDecoration(
                   labelText: 'Uang Pembayaran',
@@ -536,7 +582,8 @@ class _POSScreenState extends State<POSScreen> {
                     paymentController
                       ..text = formatCurrency(total).substring(3)
                       ..selection = TextSelection.collapsed(
-                        offset: formattedTotal.length +
+                        offset:
+                            formattedTotal.length +
                             (formattedTotal.length - 1) ~/ 3,
                       );
                   },

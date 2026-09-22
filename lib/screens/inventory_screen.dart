@@ -132,6 +132,28 @@ class _InventoryScreenState extends State<InventoryScreen> {
             return;
           }
 
+          if (barcode.isEmpty) {
+            ScaffoldMessenger.of(dialogContext).showSnackBar(
+              const SnackBar(content: Text('Barcode harus diisi')),
+            );
+            return;
+          }
+
+          final barcodeAvailable = await _databaseHelper.isBarcodeAvailable(
+            barcode,
+            excludingProductId: product?.id,
+          );
+          if (!mounted) return;
+
+          if (!barcodeAvailable) {
+            ScaffoldMessenger.of(this.context).showSnackBar(
+              const SnackBar(
+                content: Text('Barcode sudah digunakan oleh produk lain'),
+              ),
+            );
+            return;
+          }
+
           isSaving = true;
 
           final productToSave = Product(

@@ -148,6 +148,52 @@ class DatabaseHelper {
     }).toList();
   }
 
+  Future<Product?> getProductByBarcode(String barcode) async {
+    final normalizedBarcode = barcode.trim();
+    if (normalizedBarcode.isEmpty) {
+      return null;
+    }
+
+    final db = await database;
+    final result = await db.query(
+      'products',
+      where: 'barcode = ?',
+      whereArgs: [normalizedBarcode],
+      limit: 1,
+    );
+
+    if (result.isEmpty) {
+      return null;
+    }
+
+    return Product.fromMap(result.first);
+  }
+
+  Future<bool> isBarcodeAvailable(
+    String barcode, {
+    int? excludingProductId,
+  }) async {
+    final normalizedBarcode = barcode.trim();
+    if (normalizedBarcode.isEmpty) {
+      return false;
+    }
+
+    final db = await database;
+    final result = await db.query(
+      'products',
+      columns: ['id'],
+      where: excludingProductId == null
+          ? 'barcode = ?'
+          : 'barcode = ? AND id != ?',
+      whereArgs: excludingProductId == null
+          ? [normalizedBarcode]
+          : [normalizedBarcode, excludingProductId],
+      limit: 1,
+    );
+
+    return result.isEmpty;
+  }
+
   Future<int> updateProduct(Product product) async {
     final db = await database;
 
