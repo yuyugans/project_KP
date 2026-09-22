@@ -17,8 +17,7 @@ class StockReceiptHistoryScreen extends StatefulWidget {
       _StockReceiptHistoryScreenState();
 }
 
-class _StockReceiptHistoryScreenState
-    extends State<StockReceiptHistoryScreen> {
+class _StockReceiptHistoryScreenState extends State<StockReceiptHistoryScreen> {
   final DatabaseHelper _databaseHelper = DatabaseHelper.instance;
   List<StockReceipt> _receipts = [];
   bool _isLoading = true;
@@ -52,8 +51,23 @@ class _StockReceiptHistoryScreenState
       '${date.day.toString().padLeft(2, '0')}/'
       '${date.month.toString().padLeft(2, '0')}/${date.year}';
 
+  PdfPageFormat _thermalFormat(int itemCount) {
+    // Thermal printers feed according to the PDF page height, so use a
+    // finite height and reserve 25 mm at the bottom for the paper feed.
+    final height = (75 + (itemCount * 9) + 25) * PdfPageFormat.mm;
+    return PdfPageFormat(
+      57 * PdfPageFormat.mm,
+      height,
+      marginTop: 5 * PdfPageFormat.mm,
+      marginBottom: 5 * PdfPageFormat.mm,
+      marginLeft: 4 * PdfPageFormat.mm,
+      marginRight: 4 * PdfPageFormat.mm,
+    );
+  }
+
   Future<void> _printInvoice(List<StockReceipt> invoice) async {
     await Printing.layoutPdf(
+      format: _thermalFormat(invoice.length),
       onLayout: (_) => _buildInvoicePdf(invoice),
     );
   }
@@ -68,56 +82,90 @@ class _StockReceiptHistoryScreenState
 
     document.addPage(
       pw.Page(
-        pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(32),
+        pageFormat: _thermalFormat(invoice.length),
         build: (context) => pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
-            pw.Text(
-              'FAKTUR BARANG MASUK',
-              style: pw.TextStyle(
-                fontSize: 20,
-                fontWeight: pw.FontWeight.bold,
-              ),
-            ),
-            pw.SizedBox(height: 16),
-            pw.Text('Nomor Faktur: ${first.invoiceNumber}'),
-            pw.Text('Pemasok: ${first.supplier}'),
-            pw.Text('Tanggal: ${_dateLabel(first.invoiceDate)}'),
-            pw.SizedBox(height: 20),
-            pw.TableHelper.fromTextArray(
-              headers: const ['No', 'Produk', 'Jumlah', 'Harga Beli', 'Total'],
-              data: [
-                for (var index = 0; index < invoice.length; index++)
-                  [
-                    '${index + 1}',
-                    invoice[index].productName,
-                    '${invoice[index].quantity}',
-                    formatCurrency(invoice[index].buyPrice),
-                    formatCurrency(invoice[index].total),
-                  ],
-              ],
-              headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-              border: pw.TableBorder.all(color: PdfColors.grey400),
-              cellPadding: const pw.EdgeInsets.all(6),
-            ),
-            pw.SizedBox(height: 14),
-            pw.Align(
-              alignment: pw.Alignment.centerRight,
+            pw.Center(
               child: pw.Text(
-                'TOTAL: ${formatCurrency(total)}',
-                style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                'FAKTUR BARANG MASUK',
+                textAlign: pw.TextAlign.center,
+                style: pw.TextStyle(
+                  fontSize: 11,
+                  fontWeight: pw.FontWeight.bold,
+                ),
               ),
             ),
-            pw.SizedBox(height: 24),
+            pw.SizedBox(height: 6),
+            pw.Text(
+              'No. Faktur: ${first.invoiceNumber}',
+              style: const pw.TextStyle(fontSize: 8),
+            ),
+            pw.Text(
+              'Pemasok: ${first.supplier}',
+              style: const pw.TextStyle(fontSize: 8),
+            ),
+            pw.Text(
+              'Tanggal: ${_dateLabel(first.invoiceDate)}',
+              style: const pw.TextStyle(fontSize: 8),
+            ),
+            pw.Divider(height: 10),
+            for (var index = 0; index < invoice.length; index++) ...[
+              pw.Text(
+                '${index + 1}. ${invoice[index].productName}',
+                style: const pw.TextStyle(fontSize: 8),
+              ),
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text(
+                    '${invoice[index].quantity} x ${formatCurrency(invoice[index].buyPrice)}',
+                    style: const pw.TextStyle(fontSize: 8),
+                  ),
+                  pw.Text(
+                    formatCurrency(invoice[index].total),
+                    style: const pw.TextStyle(fontSize: 8),
+                  ),
+                ],
+              ),
+              if (index < invoice.length - 1) pw.SizedBox(height: 4),
+            ],
+            pw.Divider(height: 10),
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Text(
+                  'TOTAL',
+                  style: pw.TextStyle(
+                    fontSize: 9,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+                pw.Text(
+                  formatCurrency(total),
+                  style: pw.TextStyle(
+                    fontSize: 9,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
             pw.Text(
               first.paymentStatus == 'paid'
                   ? 'Status: Sudah dibayar'
                   : 'Status: Belum dibayar',
+              style: const pw.TextStyle(fontSize: 8),
             ),
             if (first.dueDate != null)
-              pw.Text('Jatuh tempo: ${_dateLabel(first.dueDate!)}'),
-            if (first.notes.isNotEmpty) pw.Text('Catatan: ${first.notes}'),
+              pw.Text(
+                'Jatuh tempo: ${_dateLabel(first.dueDate!)}',
+                style: const pw.TextStyle(fontSize: 8),
+              ),
+            if (first.notes.isNotEmpty)
+              pw.Text(
+                'Catatan: ${first.notes}',
+                style: const pw.TextStyle(fontSize: 8),
+              ),
           ],
         ),
       ),
