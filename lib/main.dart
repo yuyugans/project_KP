@@ -9,6 +9,7 @@ import 'screens/pos_screen.dart';
 import 'screens/transaction_screen.dart';
 import 'screens/report_screen.dart';
 import 'screens/stock_receipt_screen.dart';
+import 'screens/product_list_screen.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -158,6 +159,7 @@ class _MainScreenState extends State<MainScreen> {
   final List<Widget> pages = const [
     DashboardScreen(),
     InventoryScreen(),
+    ProductListScreen(),
     POSScreen(),
     TransactionScreen(),
     ReportScreen(),
@@ -189,6 +191,12 @@ class _MainScreenState extends State<MainScreen> {
             icon: Icon(Icons.inventory_2_outlined),
             selectedIcon: Icon(Icons.inventory_2),
             label: 'Inventory',
+          ),
+
+          NavigationDestination(
+            icon: Icon(Icons.list_alt_outlined),
+            selectedIcon: Icon(Icons.list_alt),
+            label: 'Daftar Barang',
           ),
 
           NavigationDestination(

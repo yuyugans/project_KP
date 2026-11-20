@@ -74,6 +74,106 @@ class _InventoryScreenState extends State<InventoryScreen> {
     await _loadProducts();
   }
 
+  Future<void> _showAddCategoryDialog() async {
+    final nameController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    String? categoryName;
+
+    try {
+      categoryName = await showDialog<String>(
+        context: context,
+        builder: (dialogContext) {
+          void saveCategory() {
+            if (!formKey.currentState!.validate()) return;
+            Navigator.pop(dialogContext, nameController.text.trim());
+          }
+
+          return AlertDialog(
+            title: const Text('Tambah Kategori'),
+            content: SizedBox(
+              width: 400,
+              child: Form(
+                key: formKey,
+                child: TextFormField(
+                  controller: nameController,
+                  autofocus: true,
+                  textInputAction: TextInputAction.done,
+                  onFieldSubmitted: (_) => saveCategory(),
+                  decoration: const InputDecoration(
+                    labelText: 'Nama Kategori',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (value) {
+                    final name = (value ?? '').trim();
+                    if (name.isEmpty) {
+                      return 'Nama kategori harus diisi';
+                    }
+                    if (_categories.any(
+                      (category) =>
+                          category.name.toLowerCase() == name.toLowerCase(),
+                    )) {
+                      return 'Kategori sudah tersedia';
+                    }
+                    return null;
+                  },
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('Batal'),
+              ),
+              ElevatedButton(
+                onPressed: saveCategory,
+                child: const Text('Simpan'),
+              ),
+            ],
+          );
+        },
+      );
+    } finally {
+      nameController.dispose();
+    }
+
+    if (categoryName == null || !mounted) return;
+
+    try {
+      await _databaseHelper.insertCategory(categoryName);
+    } on StateError catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+      return;
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal menambahkan kategori: $error')),
+      );
+      return;
+    }
+
+    try {
+      await _loadProducts();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Kategori berhasil ditambahkan, tetapi daftar gagal diperbarui: $error',
+          ),
+        ),
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Kategori berhasil ditambahkan')),
+    );
+  }
+
   Future<void> _showAddProductDialog() async {
     await _showProductDialog();
   }
@@ -406,29 +506,41 @@ class _InventoryScreenState extends State<InventoryScreen> {
               },
             ),
             const SizedBox(height: 12),
-            DropdownButtonFormField<int>(
-              initialValue: _selectedFilterCategoryId,
-              decoration: const InputDecoration(
-                labelText: 'Filter Kategori',
-                border: OutlineInputBorder(),
-              ),
-              items: [
-                const DropdownMenuItem<int>(
-                  value: null,
-                  child: Text('Semua Kategori'),
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<int>(
+                    initialValue: _selectedFilterCategoryId,
+                    decoration: const InputDecoration(
+                      labelText: 'Filter Kategori',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: [
+                      const DropdownMenuItem<int>(
+                        value: null,
+                        child: Text('Semua Kategori'),
+                      ),
+                      ..._categories.map((category) {
+                        return DropdownMenuItem<int>(
+                          value: category.id,
+                          child: Text(category.name),
+                        );
+                      }),
+                    ],
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedFilterCategoryId = value;
+                      });
+                    },
+                  ),
                 ),
-                ..._categories.map((category) {
-                  return DropdownMenuItem<int>(
-                    value: category.id,
-                    child: Text(category.name),
-                  );
-                }),
+                const SizedBox(width: 8),
+                IconButton.filledTonal(
+                  tooltip: 'Tambah kategori',
+                  onPressed: _showAddCategoryDialog,
+                  icon: const Icon(Icons.add),
+                ),
               ],
-              onChanged: (value) {
-                setState(() {
-                  _selectedFilterCategoryId = value;
-                });
-              },
             ),
             const SizedBox(height: 20),
             Expanded(

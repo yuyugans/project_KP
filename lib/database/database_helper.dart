@@ -138,6 +138,19 @@ class DatabaseHelper {
     return id;
   }
 
+  Future<int> insertProducts(List<Product> products) async {
+    if (products.isEmpty) return 0;
+
+    final db = await database;
+    await db.transaction((txn) async {
+      for (final product in products) {
+        await txn.insert('products', product.toMap());
+      }
+    });
+    _notifyProductChanges();
+    return products.length;
+  }
+
   Future<List<Product>> getProducts() async {
     final db = await database;
 
@@ -238,6 +251,29 @@ class DatabaseHelper {
     return result.map((map) {
       return Category.fromMap(map);
     }).toList();
+  }
+
+  Future<int> insertCategory(String name) async {
+    final normalizedName = name.trim();
+    if (normalizedName.isEmpty) {
+      throw ArgumentError.value(name, 'name', 'Nama kategori harus diisi');
+    }
+
+    final db = await database;
+    return db.transaction((txn) async {
+      final existing = await txn.query(
+        'categories',
+        columns: ['id'],
+        where: 'name = ? COLLATE NOCASE',
+        whereArgs: [normalizedName],
+        limit: 1,
+      );
+      if (existing.isNotEmpty) {
+        throw StateError('Kategori "$normalizedName" sudah tersedia');
+      }
+
+      return txn.insert('categories', {'name': normalizedName});
+    });
   }
 
   Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {

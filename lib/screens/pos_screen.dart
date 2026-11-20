@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 
 import '../database/database_helper.dart';
 import '../models/cart_item.dart';
@@ -612,12 +615,14 @@ class _POSScreenState extends State<POSScreen> {
   }
 
   Future<void> _showPaymentSuccess(double payment) async {
+    final receiptItems = List<CartItem>.from(_cart);
     final total = _total;
     final change = payment - total;
+    late final int transactionId;
 
     try {
-      await _databaseHelper.insertTransaction(
-        items: List<CartItem>.from(_cart),
+      transactionId = await _databaseHelper.insertTransaction(
+        items: receiptItems,
         categoryNames: _categoryNames,
         total: total,
         payment: payment,
@@ -640,6 +645,7 @@ class _POSScreenState extends State<POSScreen> {
 
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (context) {
         void finishPayment() {
           Navigator.pop(context);
@@ -649,43 +655,195 @@ class _POSScreenState extends State<POSScreen> {
           });
         }
 
-        return AlertDialog(
-          title: const Text('Pembayaran Berhasil'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.check_circle, size: 60),
+        Future<void> printReceiptAndFinish() async {
+          Navigator.pop(context);
+          await _printReceipt(
+            transactionId: transactionId,
+            items: receiptItems,
+            total: total,
+            payment: payment,
+            change: change,
+          );
+          if (!mounted) return;
+          setState(() {
+            _cart.clear();
+          });
+        }
 
-              const SizedBox(height: 16),
+        return PopScope(
+          canPop: false,
+          child: AlertDialog(
+            title: const Text('Pembayaran Berhasil'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.check_circle, size: 60),
 
-              Text('Total: ${formatCurrency(_total)}'),
+                const SizedBox(height: 16),
 
-              Text(
-                'Kembalian: ${formatCurrency(change)}',
-                style: const TextStyle(fontWeight: FontWeight.bold),
+                Text('Total: ${formatCurrency(total)}'),
+
+                Text(
+                  'Kembalian: ${formatCurrency(change)}',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 12),
+                const Text('Cetak nota pembelian?'),
+              ],
+            ),
+            actions: [
+              Focus(
+                autofocus: true,
+                onKeyEvent: (node, event) {
+                  if (event is KeyDownEvent &&
+                      event.logicalKey == LogicalKeyboardKey.enter) {
+                    finishPayment();
+                    return KeyEventResult.handled;
+                  }
+
+                  return KeyEventResult.ignored;
+                },
+                child: TextButton(
+                  onPressed: finishPayment,
+                  child: const Text('Tidak'),
+                ),
+              ),
+              ElevatedButton.icon(
+                onPressed: printReceiptAndFinish,
+                icon: const Icon(Icons.print_outlined),
+                label: const Text('Cetak Nota'),
               ),
             ],
           ),
-          actions: [
-            Focus(
-              autofocus: true,
-              onKeyEvent: (node, event) {
-                if (event is KeyDownEvent &&
-                    event.logicalKey == LogicalKeyboardKey.enter) {
-                  finishPayment();
-                  return KeyEventResult.handled;
-                }
+        );
+      },
+    );
+  }
 
-                return KeyEventResult.ignored;
-              },
-              child: ElevatedButton(
-                onPressed: finishPayment,
-                child: const Text('Selesai'),
+  PdfPageFormat _receiptFormat(int itemCount) {
+    final height = (90 + (itemCount * 10) + 25) * PdfPageFormat.mm;
+    return PdfPageFormat(
+      57 * PdfPageFormat.mm,
+      height,
+      marginTop: 5 * PdfPageFormat.mm,
+      marginBottom: 5 * PdfPageFormat.mm,
+      marginLeft: 4 * PdfPageFormat.mm,
+      marginRight: 4 * PdfPageFormat.mm,
+    );
+  }
+
+  Future<void> _printReceipt({
+    required int transactionId,
+    required List<CartItem> items,
+    required double total,
+    required double payment,
+    required double change,
+  }) async {
+    try {
+      await Printing.layoutPdf(
+        format: _receiptFormat(items.length),
+        onLayout: (_) => _buildReceiptPdf(
+          transactionId: transactionId,
+          items: items,
+          total: total,
+          payment: payment,
+          change: change,
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Gagal mencetak nota: $error')));
+    }
+  }
+
+  Future<Uint8List> _buildReceiptPdf({
+    required int transactionId,
+    required List<CartItem> items,
+    required double total,
+    required double payment,
+    required double change,
+  }) async {
+    final document = pw.Document();
+    final now = DateTime.now();
+    final dateLabel =
+        '${now.day.toString().padLeft(2, '0')}/'
+        '${now.month.toString().padLeft(2, '0')}/${now.year} '
+        '${now.hour.toString().padLeft(2, '0')}:'
+        '${now.minute.toString().padLeft(2, '0')}';
+
+    document.addPage(
+      pw.Page(
+        pageFormat: _receiptFormat(items.length),
+        build: (context) => pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Center(
+              child: pw.Text(
+                'NOTA PEMBELIAN',
+                style: pw.TextStyle(
+                  fontSize: 11,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+            ),
+            pw.SizedBox(height: 6),
+            pw.Text(
+              'No. Transaksi: $transactionId',
+              style: const pw.TextStyle(fontSize: 8),
+            ),
+            pw.Text(
+              'Tanggal: $dateLabel',
+              style: const pw.TextStyle(fontSize: 8),
+            ),
+            pw.Divider(height: 10),
+            for (final item in items) ...[
+              pw.Text(
+                item.product.name,
+                style: const pw.TextStyle(fontSize: 8),
+              ),
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text(
+                    '${item.quantity} x ${formatCurrency(item.product.sellPrice)}',
+                    style: const pw.TextStyle(fontSize: 8),
+                  ),
+                  pw.Text(
+                    formatCurrency(item.subtotal),
+                    style: const pw.TextStyle(fontSize: 8),
+                  ),
+                ],
+              ),
+              pw.SizedBox(height: 4),
+            ],
+            pw.Divider(height: 10),
+            _receiptTotalRow('TOTAL', total),
+            _receiptTotalRow('TUNAI', payment),
+            _receiptTotalRow('KEMBALIAN', change),
+            pw.SizedBox(height: 8),
+            pw.Center(
+              child: pw.Text(
+                'Terima kasih',
+                style: const pw.TextStyle(fontSize: 8),
               ),
             ),
           ],
-        );
-      },
+        ),
+      ),
+    );
+
+    return document.save();
+  }
+
+  pw.Widget _receiptTotalRow(String label, double amount) {
+    return pw.Row(
+      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+      children: [
+        pw.Text(label, style: const pw.TextStyle(fontSize: 8)),
+        pw.Text(formatCurrency(amount), style: const pw.TextStyle(fontSize: 8)),
+      ],
     );
   }
 }
