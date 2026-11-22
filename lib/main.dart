@@ -190,7 +190,7 @@ class _MainScreenState extends State<MainScreen> {
           NavigationDestination(
             icon: Icon(Icons.inventory_2_outlined),
             selectedIcon: Icon(Icons.inventory_2),
-            label: 'Inventory',
+            label: 'Persediaan',
           ),
 
           NavigationDestination(
@@ -208,19 +208,19 @@ class _MainScreenState extends State<MainScreen> {
           NavigationDestination(
             icon: Icon(Icons.receipt_long_outlined),
             selectedIcon: Icon(Icons.receipt_long),
-            label: 'Transaksi',
+            label: 'Riwayat',
           ),
 
           NavigationDestination(
             icon: Icon(Icons.bar_chart_outlined),
             selectedIcon: Icon(Icons.bar_chart),
-            label: 'Laporan',
+            label: 'Laporan Keuangan',
           ),
 
           NavigationDestination(
             icon: Icon(Icons.move_to_inbox_outlined),
             selectedIcon: Icon(Icons.move_to_inbox),
-            label: 'Barang Masuk',
+            label: 'Pembelian',
           ),
         ],
       ),
