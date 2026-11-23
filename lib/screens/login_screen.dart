@@ -19,7 +19,8 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscurePassword = true;
   bool _isLoggingIn = false;
   bool _isCheckingAdmin = true;
-  bool _isSetupMode = false;
+  bool _isRegisterMode = false;
+  bool _canSwitchAccountMode = false;
   String? _initializationError;
 
   @override
@@ -45,7 +46,8 @@ class _LoginScreenState extends State<LoginScreen> {
       final hasAdmin = await AdminDatabase.instance.hasAdminUser();
       if (!mounted) return;
       setState(() {
-        _isSetupMode = !hasAdmin;
+        _isRegisterMode = !hasAdmin;
+        _canSwitchAccountMode = hasAdmin;
         _isCheckingAdmin = false;
       });
     } catch (error) {
@@ -65,7 +67,7 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    if (_isSetupMode &&
+    if (_isRegisterMode &&
         _passwordController.text != _confirmPasswordController.text) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Konfirmasi password tidak cocok')),
@@ -75,7 +77,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     setState(() => _isLoggingIn = true);
     try {
-      if (_isSetupMode) {
+      if (_isRegisterMode) {
         await AdminDatabase.instance.createAdminUser(
           username: _usernameController.text,
           password: _passwordController.text,
@@ -113,7 +115,7 @@ class _LoginScreenState extends State<LoginScreen> {
     if (requiredError != null) {
       return requiredError;
     }
-    if (_isSetupMode && (value ?? '').length < 8) {
+    if (_isRegisterMode && (value ?? '').length < 8) {
       return 'Password harus minimal 8 karakter';
     }
     return null;
@@ -121,6 +123,14 @@ class _LoginScreenState extends State<LoginScreen> {
 
   String? _required(String? value, String label) {
     return (value ?? '').trim().isEmpty ? '$label harus diisi' : null;
+  }
+
+  void _toggleAccountMode() {
+    setState(() {
+      _isRegisterMode = !_isRegisterMode;
+      _confirmPasswordController.clear();
+      _formKey.currentState?.reset();
+    });
   }
 
   Widget _buildAccountForm() {
@@ -143,10 +153,10 @@ class _LoginScreenState extends State<LoginScreen> {
           TextFormField(
             controller: _passwordController,
             obscureText: _obscurePassword,
-            textInputAction: _isSetupMode
+            textInputAction: _isRegisterMode
                 ? TextInputAction.next
                 : TextInputAction.done,
-            onFieldSubmitted: _isSetupMode ? null : (_) => _submit(),
+            onFieldSubmitted: _isRegisterMode ? null : (_) => _submit(),
             decoration: InputDecoration(
               labelText: 'Password',
               prefixIcon: const Icon(Icons.lock_outline),
@@ -168,7 +178,7 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             validator: _validatePassword,
           ),
-          if (_isSetupMode) ...[
+          if (_isRegisterMode) ...[
             const SizedBox(height: 14),
             TextFormField(
               controller: _confirmPasswordController,
@@ -194,8 +204,19 @@ class _LoginScreenState extends State<LoginScreen> {
                       color: Colors.white,
                     ),
                   )
-                : Text(_isSetupMode ? 'Buat akun admin' : 'Masuk'),
+                : Text(_isRegisterMode ? 'Daftar akun admin' : 'Masuk'),
           ),
+          if (_canSwitchAccountMode) ...[
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: _isLoggingIn ? null : _toggleAccountMode,
+              child: Text(
+                _isRegisterMode
+                    ? 'Sudah punya akun? Masuk'
+                    : 'Belum punya akun? Daftar',
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -250,7 +271,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      _isSetupMode ? 'Buat Akun Admin' : 'Login Admin',
+                      _isRegisterMode ? 'Daftar Akun Admin' : 'Login Admin',
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         fontSize: 26,
@@ -259,8 +280,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      _isSetupMode
-                          ? 'Buat akun admin pertama untuk mengakses POS Inventory'
+                      _isRegisterMode
+                          ? 'Buat akun admin untuk mengakses POS Inventory'
                           : 'Masuk untuk mengakses POS Inventory',
                       textAlign: TextAlign.center,
                       style: const TextStyle(color: Color(0xFF7B8494)),

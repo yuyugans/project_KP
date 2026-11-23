@@ -48,12 +48,16 @@ void main() {
     final storedUser = (await db.query('admin_users')).single;
     expect(storedUser['password_hash'], isNot('secure-password'));
     expect(storedUser['password_salt'], isNotEmpty);
-    await expectLater(
-      database.createAdminUser(
+    await database.createAdminUser(
+      username: 'another-admin',
+      password: 'another-password',
+    );
+    expect(
+      await database.verifyAdminCredentials(
         username: 'another-admin',
         password: 'another-password',
       ),
-      throwsA(isA<StateError>()),
+      isTrue,
     );
   });
 }

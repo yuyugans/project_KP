@@ -69,21 +69,10 @@ class AdminDatabase {
     final passwordHash = await AdminPasswordHasher.hashPassword(password, salt);
     final db = await database;
 
-    await db.transaction((transaction) async {
-      final existingUsers = await transaction.query(
-        'admin_users',
-        columns: ['id'],
-        limit: 1,
-      );
-      if (existingUsers.isNotEmpty) {
-        throw StateError('Akun admin sudah dibuat');
-      }
-
-      await transaction.insert('admin_users', {
-        'username': normalizedUsername,
-        'password_salt': salt,
-        'password_hash': passwordHash,
-      });
+    await db.insert('admin_users', {
+      'username': normalizedUsername,
+      'password_salt': salt,
+      'password_hash': passwordHash,
     });
   }
 
