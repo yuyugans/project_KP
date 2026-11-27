@@ -6,6 +6,7 @@ import '../models/category.dart';
 import '../models/product.dart';
 import '../models/stock_receipt.dart';
 import '../utils/currency_formatter.dart';
+import '../widgets/main_menu_button.dart';
 import 'stock_receipt_history_screen.dart';
 
 class StockReceiptScreen extends StatefulWidget {
@@ -423,6 +424,7 @@ class _StockReceiptScreenState extends State<StockReceiptScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: const MainMenuButton(),
         title: const Text('Barang Masuk'),
         actions: [
           IconButton(

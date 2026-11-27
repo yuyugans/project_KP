@@ -10,6 +10,7 @@ import 'screens/transaction_screen.dart';
 import 'screens/report_screen.dart';
 import 'screens/stock_receipt_screen.dart';
 import 'screens/product_list_screen.dart';
+import 'widgets/main_menu_button.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -44,7 +45,7 @@ class MyApp extends StatelessWidget {
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'POS Inventory',
+      title: 'Toko Akbar',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: primaryBlue,
@@ -166,64 +167,88 @@ class _MainScreenState extends State<MainScreen> {
     StockReceiptScreen(),
   ];
 
+  final List<({IconData icon, IconData selectedIcon, String label})>
+  navigationItems = const [
+    (
+      icon: Icons.dashboard_outlined,
+      selectedIcon: Icons.dashboard,
+      label: 'Dashboard',
+    ),
+    (
+      icon: Icons.inventory_2_outlined,
+      selectedIcon: Icons.inventory_2,
+      label: 'Persediaan',
+    ),
+    (
+      icon: Icons.list_alt_outlined,
+      selectedIcon: Icons.list_alt,
+      label: 'Daftar Barang',
+    ),
+    (
+      icon: Icons.point_of_sale_outlined,
+      selectedIcon: Icons.point_of_sale,
+      label: 'Kasir',
+    ),
+    (
+      icon: Icons.receipt_long_outlined,
+      selectedIcon: Icons.receipt_long,
+      label: 'Riwayat',
+    ),
+    (
+      icon: Icons.bar_chart_outlined,
+      selectedIcon: Icons.bar_chart,
+      label: 'Laporan Keuangan',
+    ),
+    (
+      icon: Icons.move_to_inbox_outlined,
+      selectedIcon: Icons.move_to_inbox,
+      label: 'Pembelian',
+    ),
+  ];
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: pages[currentIndex],
-
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: currentIndex,
-
-        onDestinationSelected: (index) {
-          setState(() {
-            currentIndex = index;
-          });
-        },
-
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard),
-            label: 'Dashboard',
+      key: mainNavigationScaffoldKey,
+      drawer: Drawer(
+        child: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(20, 24, 20, 20),
+                child: Text(
+                  'Toko Akbar',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: ListView.builder(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  itemCount: navigationItems.length,
+                  itemBuilder: (context, index) {
+                    final item = navigationItems[index];
+                    final isSelected = currentIndex == index;
+                    return ListTile(
+                      leading: Icon(isSelected ? item.selectedIcon : item.icon),
+                      title: Text(item.label),
+                      selected: isSelected,
+                      onTap: () {
+                        Navigator.pop(context);
+                        setState(() {
+                          currentIndex = index;
+                        });
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
-
-          NavigationDestination(
-            icon: Icon(Icons.inventory_2_outlined),
-            selectedIcon: Icon(Icons.inventory_2),
-            label: 'Persediaan',
-          ),
-
-          NavigationDestination(
-            icon: Icon(Icons.list_alt_outlined),
-            selectedIcon: Icon(Icons.list_alt),
-            label: 'Daftar Barang',
-          ),
-
-          NavigationDestination(
-            icon: Icon(Icons.point_of_sale_outlined),
-            selectedIcon: Icon(Icons.point_of_sale),
-            label: 'Kasir',
-          ),
-
-          NavigationDestination(
-            icon: Icon(Icons.receipt_long_outlined),
-            selectedIcon: Icon(Icons.receipt_long),
-            label: 'Riwayat',
-          ),
-
-          NavigationDestination(
-            icon: Icon(Icons.bar_chart_outlined),
-            selectedIcon: Icon(Icons.bar_chart),
-            label: 'Laporan Keuangan',
-          ),
-
-          NavigationDestination(
-            icon: Icon(Icons.move_to_inbox_outlined),
-            selectedIcon: Icon(Icons.move_to_inbox),
-            label: 'Pembelian',
-          ),
-        ],
+        ),
       ),
+      body: pages[currentIndex],
     );
   }
 }

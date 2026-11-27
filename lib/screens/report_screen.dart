@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../database/database_helper.dart';
 import '../models/transaction_record.dart';
 import '../utils/currency_formatter.dart';
+import '../widgets/main_menu_button.dart';
 
 class ReportScreen extends StatefulWidget {
   const ReportScreen({super.key});
@@ -176,6 +177,7 @@ class _ReportScreenState extends State<ReportScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FA),
       appBar: AppBar(
+        leading: const MainMenuButton(),
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
         elevation: 0,

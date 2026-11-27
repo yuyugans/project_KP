@@ -5,6 +5,7 @@ import '../database/database_helper.dart';
 import '../models/category.dart';
 import '../models/product.dart';
 import '../utils/currency_formatter.dart';
+import '../widgets/main_menu_button.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -459,7 +460,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
     final filteredProducts = _filteredProducts;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Inventory')),
+      appBar: AppBar(
+        leading: const MainMenuButton(),
+        title: const Text('Inventory'),
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(

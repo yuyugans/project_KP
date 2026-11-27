@@ -5,6 +5,7 @@ import '../models/product.dart';
 import '../models/transaction_record.dart';
 import 'out_of_stock_screen.dart';
 import '../utils/currency_formatter.dart';
+import '../widgets/main_menu_button.dart';
 import '../widgets/summary_card.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -104,6 +105,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       backgroundColor: backgroundColor,
 
       appBar: AppBar(
+        leading: const MainMenuButton(),
         elevation: 0,
         backgroundColor: backgroundColor,
         surfaceTintColor: Colors.transparent,
@@ -216,11 +218,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         const SizedBox(height: 18),
                         Row(
                           children: [
-                            const Icon(
-                              Icons.waving_hand_rounded,
-                              color: Colors.white,
-                              size: 19,
-                            ),
                             const SizedBox(width: 8),
                             const Text(
                               'Selamat datang kembali!',

@@ -10,6 +10,7 @@ import '../utils/currency_formatter.dart';
 import '../utils/product_excel_file_saver.dart';
 import '../utils/product_excel_export.dart';
 import '../utils/product_excel_import.dart';
+import '../widgets/main_menu_button.dart';
 
 class ProductListScreen extends StatefulWidget {
   const ProductListScreen({super.key});
@@ -153,7 +154,10 @@ class _ProductListScreenState extends State<ProductListScreen> {
     final products = _filteredProducts;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Daftar Barang')),
+      appBar: AppBar(
+        leading: const MainMenuButton(),
+        title: const Text('Daftar Barang'),
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(

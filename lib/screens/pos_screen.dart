@@ -9,6 +9,7 @@ import '../models/cart_item.dart';
 import '../models/product.dart';
 import '../models/category.dart';
 import '../utils/currency_formatter.dart';
+import '../widgets/main_menu_button.dart';
 
 class POSScreen extends StatefulWidget {
   const POSScreen({super.key});
@@ -219,7 +220,10 @@ class _POSScreenState extends State<POSScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Kasir')),
+      appBar: AppBar(
+        leading: const MainMenuButton(),
+        title: const Text('Kasir'),
+      ),
       body: Row(
         children: [
           // =========================

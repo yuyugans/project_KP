@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../database/database_helper.dart';
 import '../models/transaction_record.dart';
 import '../utils/currency_formatter.dart';
+import '../widgets/main_menu_button.dart';
 
 class TransactionScreen extends StatefulWidget {
   const TransactionScreen({super.key});
@@ -238,6 +239,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: const MainMenuButton(),
         title: const Text('Riwayat Transaksi'),
         actions: [
           IconButton(
