@@ -1,4 +1,9 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 
 import '../database/database_helper.dart';
 import '../models/transaction_record.dart';
@@ -121,7 +126,9 @@ class _TransactionScreenState extends State<TransactionScreen> {
       case 'thisMonth':
         return 'Bulan ini';
       case 'custom':
-        return _selectedDate == null ? 'Pilih tanggal' : _formatShortDate(_selectedDate!);
+        return _selectedDate == null
+            ? 'Pilih tanggal'
+            : _formatShortDate(_selectedDate!);
       case 'all':
       default:
         return 'Semua transaksi';
@@ -152,12 +159,143 @@ class _TransactionScreenState extends State<TransactionScreen> {
           return const [];
         }
         return _transactions
-            .where((transaction) => _isSameDay(transaction.createdAt, _selectedDate!))
+            .where(
+              (transaction) =>
+                  _isSameDay(transaction.createdAt, _selectedDate!),
+            )
             .toList();
       case 'all':
       default:
         return _transactions;
     }
+  }
+
+  PdfPageFormat _transactionReceiptFormat(int itemCount) {
+    final height = (90 + (itemCount * 10) + 25) * PdfPageFormat.mm;
+    return PdfPageFormat(
+      57 * PdfPageFormat.mm,
+      height,
+      marginTop: 5 * PdfPageFormat.mm,
+      marginBottom: 5 * PdfPageFormat.mm,
+      marginLeft: 4 * PdfPageFormat.mm,
+      marginRight: 4 * PdfPageFormat.mm,
+    );
+  }
+
+  Future<void> _printTransaction(TransactionRecord transaction) async {
+    try {
+      await Printing.layoutPdf(
+        format: _transactionReceiptFormat(transaction.items.length),
+        onLayout: (_) => _buildTransactionPdf(transaction),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal mencetak transaksi #${transaction.id}: $error'),
+        ),
+      );
+    }
+  }
+
+  Future<Uint8List> _buildTransactionPdf(TransactionRecord transaction) async {
+    final document = pw.Document();
+
+    document.addPage(
+      pw.Page(
+        pageFormat: _transactionReceiptFormat(transaction.items.length),
+        build: (context) => pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Center(
+              child: pw.Text(
+                'NOTA PEMBELIAN',
+                style: pw.TextStyle(
+                  fontSize: 11,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+            ),
+            pw.SizedBox(height: 6),
+            pw.Text(
+              'No. Transaksi: ${transaction.id}',
+              style: const pw.TextStyle(fontSize: 8),
+            ),
+            pw.Text(
+              'Tanggal: ${_formatDate(transaction.createdAt)}',
+              style: const pw.TextStyle(fontSize: 8),
+            ),
+            pw.Divider(height: 10),
+            for (final item in transaction.items) ...[
+              pw.Text(item.productName, style: const pw.TextStyle(fontSize: 8)),
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text(
+                    '${item.quantity} x ${formatCurrency(item.unitPrice)}',
+                    style: const pw.TextStyle(fontSize: 8),
+                  ),
+                  pw.Text(
+                    formatCurrency(item.subtotal),
+                    style: const pw.TextStyle(fontSize: 8),
+                  ),
+                ],
+              ),
+              pw.SizedBox(height: 4),
+            ],
+            pw.Divider(height: 10),
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Text(
+                  'TOTAL',
+                  style: pw.TextStyle(
+                    fontSize: 9,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+                pw.Text(
+                  formatCurrency(transaction.total),
+                  style: pw.TextStyle(
+                    fontSize: 9,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Text('TUNAI', style: const pw.TextStyle(fontSize: 8)),
+                pw.Text(
+                  formatCurrency(transaction.payment),
+                  style: const pw.TextStyle(fontSize: 8),
+                ),
+              ],
+            ),
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Text('KEMBALIAN', style: const pw.TextStyle(fontSize: 8)),
+                pw.Text(
+                  formatCurrency(transaction.change),
+                  style: const pw.TextStyle(fontSize: 8),
+                ),
+              ],
+            ),
+            pw.SizedBox(height: 8),
+            pw.Center(
+              child: pw.Text(
+                'Terima kasih',
+                style: const pw.TextStyle(fontSize: 8),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    return document.save();
   }
 
   List<_TransactionDateGroup> _buildDateGroups() {
@@ -178,7 +316,9 @@ class _TransactionScreenState extends State<TransactionScreen> {
         .toList();
     final previousMonth = _getPreviousMonth(now);
     final lastMonthTransactions = _transactions
-        .where((transaction) => _isSameMonth(transaction.createdAt, previousMonth))
+        .where(
+          (transaction) => _isSameMonth(transaction.createdAt, previousMonth),
+        )
         .toList();
     final thisMonthTransactions = _transactions
         .where(
@@ -191,7 +331,12 @@ class _TransactionScreenState extends State<TransactionScreen> {
     final groups = <_TransactionDateGroup>[];
 
     if (todayTransactions.isNotEmpty) {
-      groups.add(_TransactionDateGroup(title: 'Hari ini', transactions: todayTransactions));
+      groups.add(
+        _TransactionDateGroup(
+          title: 'Hari ini',
+          transactions: todayTransactions,
+        ),
+      );
     }
     if (lastMonthTransactions.isNotEmpty) {
       groups.add(
@@ -418,7 +563,16 @@ class _TransactionScreenState extends State<TransactionScreen> {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: ExpansionTile(
-        title: Text('Transaksi #${transaction.id}'),
+        title: Row(
+          children: [
+            Expanded(child: Text('Transaksi #${transaction.id}')),
+            IconButton(
+              tooltip: 'Cetak transaksi #${transaction.id}',
+              onPressed: () => _printTransaction(transaction),
+              icon: const Icon(Icons.print_outlined),
+            ),
+          ],
+        ),
         subtitle: Text(
           '${_formatDate(transaction.createdAt)}\n'
           'Total: ${formatCurrency(transaction.total)}',
